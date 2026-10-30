@@ -28,8 +28,8 @@ const setTheme = (theme: string) => {
 <template>
   <header class="navbar bg-base-100 px-4 shadow-sm lg:px-8">
     <div class="navbar-start">
-      <router-link to="/" class="btn btn-ghost px-2 text-lg font-bold sm:text-xl">
-        Inicio
+      <router-link to="/" class="px-2 text-lg font-bold sm:text-xl">
+        <!-- No requerido -->
       </router-link>
     </div>
 
@@ -56,7 +56,7 @@ const setTheme = (theme: string) => {
             <path d="M1799 349l242 241-1017 1017L7 590l242-241 775 775 775-775z"></path>
           </svg>
         </div>
-        <ul tabindex="0" class="dropdown-content bg-base-300 rounded-box z-[1] w-52 p-2 shadow-2xl">
+        <ul tabindex="0" class="dropdown-content bg-base-300 rounded-box z-[1000] w-52 p-2 shadow-2xl">
           <li><input type="radio" name="theme-dropdown" class="theme-controller btn btn-sm btn-block btn-ghost justify-start" aria-label="Default" value="light" :checked="currentTheme === 'light'" @change="setTheme('light')" /></li>
           <li><input type="radio" name="theme-dropdown" class="theme-controller btn btn-sm btn-block btn-ghost justify-start" aria-label="Dark" value="dark" :checked="currentTheme === 'dark'" @change="setTheme('dark')" /></li>
           <li><input type="radio" name="theme-dropdown" class="theme-controller btn btn-sm btn-block btn-ghost justify-start" aria-label="Cupcake" value="cupcake" :checked="currentTheme === 'cupcake'" @change="setTheme('cupcake')" /></li>

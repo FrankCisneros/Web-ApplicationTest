@@ -96,16 +96,32 @@ function syncMarkers() {
 onMounted(() => {
   if (!mapContainer.value) return
 
-  // Vista inicial: San Salvador.
-  map = L.map(mapContainer.value).setView(
-    [13.6929, -89.2182],
-    13,
-  )
+  // Cargar posición y zoom guardados
+  const savedCenter = localStorage.getItem('mapCenter')
+  const savedZoom = localStorage.getItem('mapZoom')
+
+  const initialCenter: [number, number] = savedCenter
+    ? JSON.parse(savedCenter)
+    : [13.6929, -89.2182]
+  const initialZoom = savedZoom ? parseInt(savedZoom, 10) : 13
+
+  map = L.map(mapContainer.value).setView(initialCenter, initialZoom)
 
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; OpenStreetMap contributors',
     maxZoom: 19,
   }).addTo(map)
+
+  map.on('moveend', () => {
+    if (!map) return
+    const center = map.getCenter()
+    localStorage.setItem('mapCenter', JSON.stringify([center.lat, center.lng]))
+  })
+
+  map.on('zoomend', () => {
+    if (!map) return
+    localStorage.setItem('mapZoom', map.getZoom().toString())
+  })
 
   syncMarkers()
 })
@@ -120,6 +136,16 @@ onBeforeUnmount(() => {
   map?.remove()
   map = null
   leafletMarkers.clear()
+})
+
+function getMapCenter(): { lat: number; lng: number } | null {
+  if (!map) return null
+  const center = map.getCenter()
+  return { lat: center.lat, lng: center.lng }
+}
+
+defineExpose({
+  getMapCenter,
 })
 </script>
 

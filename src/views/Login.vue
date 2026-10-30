@@ -11,6 +11,8 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 
+const showPassword = ref(false)
+
 async function handleLogin() {
   isLoading.value = true
   errorMessage.value = ''
@@ -55,15 +57,31 @@ async function handleLogin() {
             />
 
             <label class="label" for="password">Contraseña</label>
-            <input
-              id="password"
-              v-model="password"
-              type="password"
-              class="input w-full"
-              placeholder="********"
-              autocomplete="current-password"
-              required
-            />
+            <div class="relative">
+              <input
+                id="password"
+                v-model="password"
+                :type="showPassword ? 'text' : 'password'"
+                class="input w-full pr-10"
+                placeholder="********"
+                autocomplete="current-password"
+                required
+              />
+              <button
+                type="button"
+                class="absolute right-3 top-1/2 -translate-y-1/2"
+                @click="showPassword = !showPassword"
+              >
+                <svg v-if="showPassword" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+                <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              </button>
+            </div>
 
             <div class="flex justify-end">
               <a href="#" class="link link-hover text-sm">¿Olvidaste tu contraseña?</a>

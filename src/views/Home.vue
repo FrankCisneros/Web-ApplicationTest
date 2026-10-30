@@ -12,6 +12,7 @@ const isSaving = ref(false)
 const errorMessage = ref('')
 const editingMarkerId = ref<string | null>(null)
 const isModalOpen = ref(false)
+const mapViewRef = ref<InstanceType<typeof MapView> | null>(null)
 
 const currentUser = getUser()
 
@@ -53,6 +54,9 @@ async function handleMarkerMoved(payload: {
       latitude: payload.latitude,
       longitude: payload.longitude,
     })
+
+    marker.latitude = payload.latitude
+    marker.longitude = payload.longitude
   } catch (error) {
     errorMessage.value = describeError(
       error,
@@ -68,11 +72,15 @@ async function addMarker() {
   errorMessage.value = ''
 
   try {
+    const mapCenter = mapViewRef.value?.getMapCenter()
+    const latitude = mapCenter?.lat ?? 13.6929
+    const longitude = mapCenter?.lng ?? -89.2182
+
     const marker = await createMarker({
       title: `Nuevo marcador ${markers.value.length + 1}`,
       description: 'Puedes editar esta ubicación más adelante.',
-      latitude: 13.6929,
-      longitude: -89.2182,
+      latitude,
+      longitude,
       color: '#22c55e',
     })
 
@@ -167,7 +175,7 @@ function handleCloseModal() {
     </div>
 
     <div class="flex min-h-0 flex-1 flex-col gap-4 p-4 md:flex-row">
-      <!-- Panel lateral -->
+      <!-- Lista de marcadores -->
       <aside class="w-full shrink-0 rounded-box bg-base-100 p-4 md:w-80">
         <div class="mb-4 flex items-center justify-between">
           <h2 class="text-lg font-semibold">
@@ -233,7 +241,6 @@ function handleCloseModal() {
                 </svg>
               </button>
 
-              <!-- Eliminar -->
               <button
                 class="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 transition-colors"
                 aria-label="Eliminar marcador"
@@ -266,13 +273,14 @@ function handleCloseModal() {
       <!-- Mapa -->
       <section class="min-h-0 min-w-0 flex-1 overflow-hidden rounded-box bg-base-100">
         <MapView
+          ref="mapViewRef"
           :markers="markers"
           @marker-moved="handleMarkerMoved"
         />
       </section>
     </div>
 
-    <!-- Modal de edición -->
+    <!-- Modal para editar -->
     <MapModal
       v-if="editingMarkerId"
       :marker-title="markers.find(m => m.id === editingMarkerId)?.title || ''"

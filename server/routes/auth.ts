@@ -1,8 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt, { type SignOptions } from 'jsonwebtoken';
-import { createUser, findUserByEmail } from '../users';
-import { EmailOtpType } from '@supabase/supabase-js';
+import { createUser, findUserByEmail } from '../data/users';
 
 const router = Router();
 

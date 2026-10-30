@@ -1,75 +1,43 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onMounted, ref } from 'vue'
 import MapView from '../components/mapview.vue'
 import type { MapMarker } from '../types/marker'
+import { createMarker, loadMarkers, updateMarker, deleteMarker } from '../services/marker' 
+import { getUser } from '../services/auth'
+import MapModal from '../components/mapmodal.vue'
 
-const STORAGE_KEY = 'geotrack-markers'
+const markers = ref<MapMarker[]>([])
+const isLoading = ref(true)
+const isSaving = ref(false)
+const errorMessage = ref('')
+const editingMarkerId = ref<string | null>(null)
+const isModalOpen = ref(false)
 
-const defaultMarkers: MapMarker[] = [
-  {
-    id: '1',
-    title: 'Mi casa',
-    description: 'Punto de referencia',
-    latitude: 13.6929,
-    longitude: -89.2182,
-    color: '#ef4444',
-  },
-  {
-    id: '2',
-    title: 'Lugar de interés',
-    description: 'Otro punto en el mapa',
-    latitude: 13.7012,
-    longitude: -89.2245,
-    color: '#3b82f6',
-  },
-]
+const currentUser = getUser()
 
-function loadMarkers(): MapMarker[] {
+function describeError(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback
+}
+
+async function fetchMarkers() {
+  isLoading.value = true
+  errorMessage.value = ''
+
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-
-    if (!stored) return defaultMarkers
-
-    const parsed: unknown = JSON.parse(stored)
-
-    if (!Array.isArray(parsed)) return defaultMarkers
-
-    // Validación básica de los datos recuperados.
-    return parsed.filter((item): item is MapMarker => {
-      return (
-        typeof item.id === 'string' &&
-        typeof item.title === 'string' &&
-        typeof item.description === 'string' &&
-        typeof item.latitude === 'number' &&
-        Number.isFinite(item.latitude) &&
-        item.latitude >= -90 &&
-        item.latitude <= 90 &&
-        typeof item.longitude === 'number' &&
-        Number.isFinite(item.longitude) &&
-        item.longitude >= -180 &&
-        item.longitude <= 180 &&
-        typeof item.color === 'string'
-      )
-    })
-  } catch {
-    return defaultMarkers
+    markers.value = await loadMarkers()
+  } catch (error) {
+    errorMessage.value = describeError(
+      error,
+      'No se pudieron cargar los marcadores',
+    )
+  } finally {
+    isLoading.value = false
   }
 }
 
-const markers = ref<MapMarker[]>(loadMarkers())
+onMounted(fetchMarkers)
 
-watch(
-  markers,
-  (newMarkers) => {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify(newMarkers),
-    )
-  },
-  { deep: true },
-)
-
-function handleMarkerMoved(payload: {
+async function handleMarkerMoved(payload: {
   id: string
   latitude: number
   longitude: number
@@ -80,39 +48,123 @@ function handleMarkerMoved(payload: {
 
   if (!marker) return
 
-  marker.latitude = payload.latitude
-  marker.longitude = payload.longitude
+  try{
+    await updateMarker(marker.id, {
+      latitude: payload.latitude,
+      longitude: payload.longitude,
+    })
+  } catch (error) {
+    errorMessage.value = describeError(
+      error,
+      'No se pudo actualizar el marcador',
+    )
+  }
 }
 
-function addMarker() {
-  markers.value.push({
-    id: crypto.randomUUID(),
-    title: `Nuevo marcador ${markers.value.length + 1}`,
-    description: 'Puedes editar esta ubicación más adelante.',
-    latitude: 13.6929,
-    longitude: -89.2182,
-    color: '#22c55e',
-  })
+async function addMarker() {
+  if (isSaving.value) return
+
+  isSaving.value = true
+  errorMessage.value = ''
+
+  try {
+    const marker = await createMarker({
+      title: `Nuevo marcador ${markers.value.length + 1}`,
+      description: 'Puedes editar esta ubicación más adelante.',
+      latitude: 13.6929,
+      longitude: -89.2182,
+      color: '#22c55e',
+    })
+
+    markers.value = [...markers.value, marker]
+  } catch (error) {
+    errorMessage.value = describeError(
+      error,
+      'No se pudo crear el marcador',
+    )
+  } finally {
+    isSaving.value = false
+  }
 }
 
-function removeMarker(id: string) {
-  markers.value = markers.value.filter(
-    marker => marker.id !== id,
-  )
+async function removeMarker(id: string) {
+  try {
+    await deleteMarker(id)
+    markers.value = markers.value.filter(
+      marker => marker.id !== id,
+    )
+  } catch (error) {
+    errorMessage.value = describeError(
+      error,
+      'No se pudo eliminar el marcador',
+    )
+  }
 }
+
+async function openEditModal(id: string) {
+  editingMarkerId.value = id
+  isModalOpen.value = true
+}
+
+async function handleSaveTitle(newTitle: string) {
+  if (!editingMarkerId.value) return
+
+  try {
+    await updateMarker(editingMarkerId.value, {
+      title: newTitle,
+    })
+
+    const markerIndex = markers.value.findIndex(
+      m => m.id === editingMarkerId.value,
+    )
+    if (markerIndex !== -1) {
+      markers.value[markerIndex].title = newTitle
+    }
+
+    isModalOpen.value = false
+    editingMarkerId.value = null
+  } catch (error) {
+    errorMessage.value = describeError(
+      error,
+      'No se pudo actualizar el título',
+    )
+  }
+}
+
+function handleCloseModal() {
+  isModalOpen.value = false
+  editingMarkerId.value = null
+}
+
 </script>
 
 <template>
   <main class="flex h-screen flex-col bg-base-200">
     <header class="navbar bg-base-100 px-6 shadow-sm">
       <div class="flex-1">
-        <h1 class="text-xl font-bold">GeoTrack</h1>
+        <div class="avatar placeholder">
+          <div class="w-10 h-10 rounded-full bg-primary text-primary-content flex items-center justify-center">
+            <span class="text-xl font-bold leading-none">
+              {{ currentUser ? currentUser.name.charAt(0).toUpperCase() : 'U' }}
+            </span>
+          </div>
+        </div>
+
+        {{ currentUser ? currentUser.name : 'Usuario' }}
       </div>
 
       <div class="badge badge-primary">
         {{ markers.length }} ubicaciones
       </div>
     </header>
+
+    <div
+      v-if="errorMessage"
+      class="alert alert-error mx-4 mt-4"
+      role="alert"
+    >
+      {{ errorMessage }}
+    </div>
 
     <div class="flex min-h-0 flex-1 flex-col gap-4 p-4 md:flex-row">
       <!-- Panel lateral -->
@@ -124,13 +176,24 @@ function removeMarker(id: string) {
 
           <button
             class="btn btn-primary btn-sm"
+            :disabled="isSaving"
             @click="addMarker"
           >
             + Añadir
           </button>
         </div>
 
-        <div class="flex flex-col gap-2">
+        <div
+          v-if="isLoading"
+          class="flex justify-center py-6"
+        >
+          <span class="loading loading-spinner loading-md" />
+        </div>
+
+        <div
+          v-else
+          class="flex flex-col gap-2"
+        >
           <article
             v-for="marker in markers"
             :key="marker.id"
@@ -149,11 +212,51 @@ function removeMarker(id: string) {
               </div>
 
               <button
-                class="btn btn-ghost btn-sm text-error"
+                class="bg-orange-500 text-white p-2 rounded-lg hover:bg-orange-600 transition-colors"
+                aria-label="Editar marcador"
+                title="Editar"
+                @click="openEditModal(marker.id)"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L8 18l-4 1 1-4Z" />
+                </svg>
+              </button>
+
+              <!-- Eliminar -->
+              <button
+                class="bg-red-500 text-white p-2 rounded-lg hover:bg-red-600 transition-colors"
                 aria-label="Eliminar marcador"
+                title="Eliminar"
                 @click="removeMarker(marker.id)"
               >
-                Eliminar
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M3 6h18" />
+                  <path d="M8 6V4h8v2" />
+                  <path d="m19 6-1 14H6L5 6" />
+                  <path d="M10 11v6" />
+                  <path d="M14 11v6" />
+                </svg>
               </button>
             </div>
           </article>
@@ -168,5 +271,14 @@ function removeMarker(id: string) {
         />
       </section>
     </div>
+
+    <!-- Modal de edición -->
+    <MapModal
+      v-if="editingMarkerId"
+      :marker-title="markers.find(m => m.id === editingMarkerId)?.title || ''"
+      :is-open="isModalOpen"
+      @save="handleSaveTitle"
+      @close="handleCloseModal"
+    />
   </main>
 </template>

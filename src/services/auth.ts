@@ -99,3 +99,7 @@ export function logout(): void {
   localStorage.removeItem('user')
   currentUser.value = null
 }
+
+export function getUser(): AuthUser | null {
+  return currentUser.value
+}
